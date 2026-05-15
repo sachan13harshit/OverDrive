@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 model User {
@@ -16,5 +18,60 @@ model User {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
+  driveFiles   DriveFile[]
+  rawDocuments RawDocument[]
+  chunks       Chunk[]
+
   @@map("users")
+}
+
+model DriveFile {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  user           User      @relation(fields: [userId], references: [id])
+  fileId         String    @map("file_id")
+  name           String
+  mimeType       String    @map("mime_type")
+  hash           String?
+  lastModifiedAt DateTime? @map("last_modified_at")
+  lastIngestedAt DateTime? @map("last_ingested_at")
+  supported      Boolean
+  ingestionPhase String    @map("ingestion_phase")
+  ingestionError String?   @map("ingestion_error")
+  retryCount     Int       @default(0) @map("retry_count")
+  lastRetryAt    DateTime? @map("last_retry_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("drive_files")
+}
+
+model RawDocument {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  fileId    String   @map("file_id")
+  mimeType  String   @map("mime_type")
+  text      String
+  hash      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("raw_documents")
+}
+
+model Chunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String                       @map("user_id") @db.Uuid
+  user       User                         @relation(fields: [userId], references: [id])
+  fileId     String                       @map("file_id")
+  chunkIndex Int                          @map("chunk_index")
+  text       String
+  hash       String?
+  vectorized Boolean                      @default(false)
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime                     @default(now()) @map("created_at")
+  updatedAt  DateTime                     @default(now()) @updatedAt @map("updated_at")
+
+  @@map("chunks")
 }

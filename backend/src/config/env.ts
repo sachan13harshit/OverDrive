@@ -9,6 +9,7 @@ export const envChecker = () => {
     GOOGLE_REDIRECT_URI,
     JWT_SECRET,
     FRONTEND_URL,
+    OPENAI_API_KEY,
   } = process.env;
 
   const missingVars: string[] = [];
@@ -20,6 +21,7 @@ export const envChecker = () => {
   if (!GOOGLE_REDIRECT_URI) missingVars.push("GOOGLE_REDIRECT_URI");
   if (!JWT_SECRET) missingVars.push("JWT_SECRET");
   if (!FRONTEND_URL) missingVars.push("FRONTEND_URL");
+  if (!OPENAI_API_KEY) missingVars.push("OPENAI_API_KEY");
 
   if (missingVars.length > 0) {
     throw new Error(`Missing environment variable(s): ${missingVars.join(", ")}`);
