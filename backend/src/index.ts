@@ -7,6 +7,7 @@ envChecker();
 
 import authRouter from "./routes/auth.routes.js";
 import driveRouter from "./routes/drive.routes.js";
+import chatRouter from "./routes/chat.routes.js";
 import { reconcileStuckIngestions, startReconciliationSweep } from "./services/reconciliation.service.js";
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(express.json());
 
 app.use("/auth", authRouter);
 app.use("/drive", driveRouter);
+app.use("/chats", chatRouter);
 
 const PORT = process.env.PORT || 3001;
 
