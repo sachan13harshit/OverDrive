@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../types/auth.types.js";
-import { createChat, getChatWithMessages, appendUserMessage } from "../services/chat.service.js";
+import { createChat, getChatWithMessages, appendUserMessageWithTask } from "../services/chat.service.js";
+import { runRagTask } from "../services/ragTask.service.js";
 import { listChatRoomsForUser, updateChatRoomTitle } from "../models/chatRoom.model.js";
+
+const MAX_CONCURRENT_TASKS = 10;
+export let activeRagTasks = 0;
 
 export async function listChats(req: Request, res: Response): Promise<void> {
   try {
@@ -40,8 +44,17 @@ export async function createChatHandler(req: Request, res: Response): Promise<vo
     const chat = await createChat(authReq.user!.id, title);
 
     if (initialMessage) {
-      const result = await appendUserMessage(chat.id, authReq.user!.id, initialMessage.trim());
-      res.json({ ...chat, initialMessageId: result.messageId });
+      if (activeRagTasks >= MAX_CONCURRENT_TASKS) {
+        res.status(429).json({ error: "Too many active tasks. Please try again later." });
+        return;
+      }
+      activeRagTasks++;
+      const result = await appendUserMessageWithTask(chat.id, authReq.user!.id, initialMessage.trim());
+      runRagTask(result.taskId)
+        .catch((err) => console.error("Background RAG task failed:", err))
+        .finally(() => { activeRagTasks--; });
+
+      res.json({ ...chat, initialTaskId: result.taskId });
       return;
     }
 
@@ -65,18 +78,34 @@ export async function getChat(req: Request, res: Response): Promise<void> {
 }
 
 export async function postMessage(req: Request, res: Response): Promise<void> {
+  const { content } = req.body as { content?: string };
+  if (!content || !content.trim()) {
+    res.status(400).json({ error: "content is required" });
+    return;
+  }
+
+  if (activeRagTasks >= MAX_CONCURRENT_TASKS) {
+    res.status(429).json({ error: "Too many active tasks. Please try again later." });
+    return;
+  }
+
+  activeRagTasks++;
+  let taskHandledInRag = false;
+
   try {
     const chatId = req.params.chatId as string;
-    const { content } = req.body as { content?: string };
-    if (!content || !content.trim()) {
-      res.status(400).json({ error: "content is required" });
-      return;
-    }
     const authReq = req as AuthenticatedRequest;
 
-    const result = await appendUserMessage(chatId, authReq.user!.id, content);
+    const result = await appendUserMessageWithTask(chatId, authReq.user!.id, content);
+
+    taskHandledInRag = true;
+    runRagTask(result.taskId)
+      .catch((err) => console.error("Background RAG task failed:", err))
+      .finally(() => { activeRagTasks--; });
+
     res.json(result);
   } catch (error) {
+    if (!taskHandledInRag) activeRagTasks--;
     console.error("Failed to append message", error);
     res.status(400).json({ error: "Invalid request" });
   }

@@ -23,6 +23,7 @@ model User {
   chunks       Chunk[]
   chatRooms    ChatRoom[]
   chatMessages ChatMessage[]
+  ragTasks     RagTask[]
 
   @@map("users")
 }
@@ -36,6 +37,7 @@ model ChatRoom {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   messages ChatMessage[]
+  ragTasks RagTask[]
 
   @@map("chat_rooms")
 }
@@ -52,7 +54,28 @@ model ChatMessage {
   ragTaskId String?  @map("rag_task_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
 
+  ragTasksForMessage RagTask[] @relation("RagTaskChatMessage")
+
   @@map("chat_messages")
+}
+
+model RagTask {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String      @map("user_id") @db.Uuid
+  user                User        @relation(fields: [userId], references: [id])
+  chatId              String      @map("chat_id") @db.Uuid
+  chatRoom            ChatRoom    @relation(fields: [chatId], references: [id])
+  chatMessageId       String      @map("chat_message_id") @db.Uuid
+  chatMessage         ChatMessage @relation("RagTaskChatMessage", fields: [chatMessageId], references: [id])
+  inputPrompt         String      @map("input_prompt")
+  status              String
+  finalAnswerMarkdown String?     @map("final_answer_markdown")
+  resultJson          Json?       @map("result_json")
+  usedChunkIds        Json?       @map("used_chunk_ids")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  completedAt         DateTime?   @map("completed_at")
+
+  @@map("rag_tasks")
 }
 
 model DriveFile {

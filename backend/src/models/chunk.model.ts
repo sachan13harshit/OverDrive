@@ -37,3 +37,31 @@ export function findChunksByFileId(fileId: string) {
     select: { text: true, chunkIndex: true },
   });
 }
+
+export type ChunkSearchHit = {
+  id: string;
+  fileId: string;
+  chunkIndex: number;
+  text: string;
+  score: number;
+};
+
+export async function searchChunksByEmbedding(
+  embedding: number[],
+  userId: string,
+  topK: number,
+  scoreThreshold: number
+): Promise<ChunkSearchHit[]> {
+  const vectorLiteral = toVectorLiteral(embedding);
+
+  return prisma.$queryRaw<ChunkSearchHit[]>`
+    SELECT id, file_id AS "fileId", chunk_index AS "chunkIndex", text,
+           (1 - (embedding <=> ${vectorLiteral}::vector))::float AS score
+    FROM chunks
+    WHERE user_id = ${userId}::uuid
+      AND embedding IS NOT NULL
+      AND (1 - (embedding <=> ${vectorLiteral}::vector)) >= ${scoreThreshold}
+    ORDER BY embedding <=> ${vectorLiteral}::vector
+    LIMIT ${topK}
+  `;
+}
