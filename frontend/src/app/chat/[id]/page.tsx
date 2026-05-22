@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Send } from "lucide-react";
 import MessageList, { ChatMessageProps, Citation } from "@/components/chat/MessageList";
 import ThoughtLoader from "@/components/chat/ThoughtLoader";
+import DocumentPreviewModal from "@/components/drive/DocumentPreviewModal";
 import { fetchWithAuth } from "@/lib/apiClient";
 
 interface SSEPayload {
@@ -50,6 +51,7 @@ export default function ChatRoomPage() {
 
   const [thoughts, setThoughts] = useState<{ id: string, text: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeCite, setActiveCite] = useState<Citation | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const titleSetRef = useRef(false);
@@ -213,7 +215,7 @@ export default function ChatRoomPage() {
             </p>
           </div>
         ) : (
-          <MessageList messages={messages} />
+          <MessageList messages={messages} onCiteClick={setActiveCite} />
         )}
 
         {isGenerating && <ThoughtLoader thoughts={thoughts} />}
@@ -248,6 +250,13 @@ export default function ChatRoomPage() {
           AI-generated answers can be wrong. Verify critical citations.
         </div>
       </div>
+
+      <DocumentPreviewModal
+        isOpen={activeCite !== null}
+        onClose={() => setActiveCite(null)}
+        fileId={activeCite?.fileId ?? null}
+        fileName={activeCite?.fileName}
+      />
     </div>
   );
 }
